@@ -11,6 +11,7 @@ This NestJS application, designed for real-time cryptocurrency data processing, 
   - `/api/get-top-gainers`: Retrieves the top cryptocurrency gainers.
   - `/health`: For service health checks.
 - **CI/CD Pipeline**: Incorporates linting, Terraform-based infrastructure planning and applying, and comprehensive testing.
+- **Terraform Cloud**: Use Terraform Cloud to manage TF state.
 
 ## Application Port
 
