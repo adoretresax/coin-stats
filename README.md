@@ -7,8 +7,47 @@ This NestJS application, designed for real-time cryptocurrency data processing, 
 ## Key Features
 
 - **Instruments Service**: Manages WebSocket connections for real-time cryptocurrency data streaming.
-- **API Endpoints**: Includes `/api/get-top-gainers` for top cryptocurrency gainers and `/health` for service health checks.
+- **API Endpoints**:
+  - `/api/get-top-gainers`: Retrieves the top cryptocurrency gainers.
+  - `/health`: For service health checks.
 - **CI/CD Pipeline**: Incorporates linting, Terraform-based infrastructure planning and applying, and comprehensive testing.
+
+## Application Port
+
+The application is configured to run on port `3000`.
+
+## New Endpoint: Get Top Gainers
+
+The `/api/get-top-gainers` endpoint fetches the top cryptocurrency gainers within a specified date range.
+
+### Usage
+
+- **Endpoint**: `GET /api/get-top-gainers`
+- **Query Parameters**:
+  - `omsId` (required): The OMS ID.
+  - `fromDate` (optional): The start date for the range (format: YYYY-MM-DD). Default is "2020-07-18".
+  - `toDate` (optional): The end date for the range (format: YYYY-MM-DD). If not provided, the current date is used.
+
+### Example Request
+
+```javascript
+const omsId = 1;
+const fromDate = "2020-01-01"; // Optional: specify a start date or remove if not needed
+const toDate = "2021-12-31"; // Optional: specify an end date or remove if not needed
+
+// Example usage in JavaScript
+// axios.get('/api/get-top-gainers?omsId=1&fromDate=2020-01-01&toDate=2021-12-31');
+```
+
+### Response
+
+The response will be a JSON array of top gainers with relevant data for each cryptocurrency.
+
+### Error Handling
+
+Errors are returned with appropriate HTTP status codes. For internal server errors, a status code of 500 is returned.
+
+---
 
 ## Setup and Configuration
 
@@ -39,11 +78,3 @@ docker build --platform=linux/amd64 -t coin-stats-be .
 ### AWS Infrastructure
 
 - Deployed on AWS with ECS for container orchestration and ALB for load balancing.
-
-## Project Scripts
-
-- **Build, Start, Lint, Test**: Simplified scripts in `package.json` for project management.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
