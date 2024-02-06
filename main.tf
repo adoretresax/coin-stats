@@ -1,4 +1,11 @@
 terraform {
+  cloud {
+    organization = "adoretresax"
+
+    workspaces {
+      name = "bit-workspace"
+    }
+  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -14,21 +21,76 @@ provider "aws" {
 # Fetching the AWS account ID dynamically
 data "aws_caller_identity" "current" {}
 
-# Application Load Balancer (ALB)
-resource "aws_lb" "ecs_alb" {
-  name               = "ecs-alb"
-  internal           = false
-  load_balancer_type = "application"
-  subnets            = ["subnet-07020e6c9498ec80b", "subnet-0010a43f66bd64e09", "subnet-0f242cc5b0ee6033e"]
-  security_groups    = [aws_security_group.alb_sg.id]
+# VPC Creation
+resource "aws_vpc" "coin_stats_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "coin-stats-vpc"
+  }
+}
+
+# Internet Gateway
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.coin_stats_vpc.id
+
+  tags = {
+    Name = "main"
+  }
+}
+
+# Subnet Creation
+resource "aws_subnet" "subnet_1" {
+  vpc_id            = aws_vpc.coin_stats_vpc.id
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "ap-southeast-1a"
+
+  tags = {
+    Name = "subnet-1"
+  }
+}
+
+resource "aws_subnet" "subnet_2" {
+  vpc_id            = aws_vpc.coin_stats_vpc.id
+  cidr_block        = "10.0.2.0/24"
+  availability_zone = "ap-southeast-1b"
+
+  tags = {
+    Name = "subnet-2"
+  }
+}
+
+# Route Table
+resource "aws_route_table" "r" {
+  vpc_id = aws_vpc.coin_stats_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+
+  tags = {
+    Name = "main"
+  }
+}
+
+resource "aws_route_table_association" "a" {
+  subnet_id      = aws_subnet.subnet_1.id
+  route_table_id = aws_route_table.r.id
+}
+
+resource "aws_route_table_association" "b" {
+  subnet_id      = aws_subnet.subnet_2.id
+  route_table_id = aws_route_table.r.id
 }
 
 # Security Group for ALB
-# Ensure the name is unique or import the existing security group if managed outside Terraform
 resource "aws_security_group" "alb_sg" {
   name        = "alb-security-group"
   description = "ALB Security Group"
-  vpc_id      = "vpc-0818df168778dbf18"
+  vpc_id      = aws_vpc.coin_stats_vpc.id
 
   ingress {
     from_port   = 80
@@ -45,12 +107,21 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
+# Application Load Balancer (ALB)
+resource "aws_lb" "ecs_alb" {
+  name               = "ecs-alb"
+  internal           = false
+  load_balancer_type = "application"
+  subnets            = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
+  security_groups    = [aws_security_group.alb_sg.id]
+}
+
 # Target Group for ECS Tasks
 resource "aws_lb_target_group" "ecs_tg" {
   name        = "ecs-target-group"
   port        = 80
   protocol    = "HTTP"
-  vpc_id      = "vpc-0818df168778dbf18"
+  vpc_id      = aws_vpc.coin_stats_vpc.id
   target_type = "ip"
 
   health_check {
@@ -81,7 +152,6 @@ output "alb_dns_name" {
 }
 
 # ECR Repository with image tag immutability and scanning configuration
-# Ensure the repository name is unique or import it if managed outside Terraform
 resource "aws_ecr_repository" "coin_stats_repo" {
   name                 = "coin-stats-be"
   image_tag_mutability = "IMMUTABLE"
@@ -124,7 +194,6 @@ resource "aws_ecs_cluster" "coin_stats_cluster" {
 }
 
 # IAM Role for ECS Execution
-# Ensure the role name is unique or import it if managed outside Terraform
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecs_execution_role"
 
@@ -179,7 +248,7 @@ resource "aws_ecs_service" "coin_stats_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = ["subnet-07020e6c9498ec80b", "subnet-0010a43f66bd64e09", "subnet-0f242cc5b0ee6033e"]
+    subnets          = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
     assign_public_ip = false
     security_groups  = [aws_security_group.ecs_sg.id]
   }
@@ -195,11 +264,10 @@ resource "aws_ecs_service" "coin_stats_service" {
 }
 
 # Security Group for ECS Tasks
-# Ensure the name is unique or import the existing security group if managed outside Terraform
 resource "aws_security_group" "ecs_sg" {
   name        = "ecs_security_group"
   description = "Allow inbound traffic"
-  vpc_id      = "vpc-0818df168778dbf18"
+  vpc_id      = aws_vpc.coin_stats_vpc.id
 
   ingress {
     from_port   = 3000
@@ -216,6 +284,7 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
+# Security Group for ECS Executions
 resource "aws_iam_role_policy" "ecs_execution_policy" {
   name = "ecs_execution_policy"
   role = aws_iam_role.ecs_execution_role.id
