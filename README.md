@@ -70,6 +70,12 @@ To build the Docker image for M1 architecture, use:
 docker build --platform=linux/amd64 -t coin-stats-be .
 ```
 
+then run the app:
+
+```bash
+docker run -p 3000:3000 coin-stats-be
+```
+
 ## CI/CD Pipeline Overview
 
 1. **Lint**: Code quality and consistency checks.
