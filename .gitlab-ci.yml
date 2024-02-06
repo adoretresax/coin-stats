@@ -1,0 +1,63 @@
+stages:
+  - lint
+  - plan
+  - apply
+  - test
+
+variables:
+  AWS_DEFAULT_REGION: "ap-southeast-1"
+  NODE_ENV: "test"
+
+before_script:
+  - apt-get update && apt-get install -y curl unzip
+  - curl -LO https://releases.hashicorp.com/terraform/1.0.0/terraform_1.0.0_linux_amd64.zip
+  - unzip terraform_1.0.0_linux_amd64.zip
+  - mv terraform /usr/local/bin/
+  - terraform --version
+
+lint:
+  stage: lint
+  script:
+    - terraform init
+    - terraform fmt -check
+    - terraform validate
+  only:
+    - main
+    - merge_requests
+
+plan:
+  stage: plan
+  script:
+    - terraform init
+    - terraform plan -out=plan.tfplan
+  only:
+    - main
+    - merge_requests
+  artifacts:
+    paths:
+      - plan.tfplan
+    expire_in: 1 hour
+
+apply:
+  stage: apply
+  script:
+    - terraform init
+    - terraform apply plan.tfplan
+  only:
+    - main
+  dependencies:
+    - plan
+
+test:
+  stage: test
+  image: node:latest
+  script:
+    - npm install
+    - npm run test
+  only:
+    - main
+    - merge_requests
+
+cache:
+  paths:
+    - .terraform
